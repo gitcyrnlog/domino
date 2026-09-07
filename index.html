@@ -25,7 +25,7 @@
         .primary:hover { filter: brightness(1.12); }
         .danger { color: var(--red); border-color: #633044; background: transparent; }
         main { padding: 30px 0 70px; }
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+        .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; max-width: 760px; }
         .stat { padding: 18px; background: rgba(27,20,38,.78); border: 1px solid var(--line); border-radius: 10px; }
         .stat strong { display: block; font-size: 28px; margin-bottom: 3px; }
         .stat span { color: var(--muted); font: 12px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
@@ -33,7 +33,7 @@
         h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
         .legend { color: var(--muted); font-size: 13px; }
         .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(20,16,29,.84); }
-        table { width: 100%; border-collapse: collapse; min-width: 680px; }
+        table { width: 100%; border-collapse: collapse; min-width: 560px; }
         th { color: var(--muted); font: 11px 'DM Mono', monospace; letter-spacing: .08em; text-align: left; text-transform: uppercase; padding: 15px 18px; border-bottom: 1px solid var(--line); }
         td { padding: 18px; border-bottom: 1px solid #241b30; }
         tr:last-child td { border-bottom: 0; }
@@ -70,9 +70,9 @@
 <body>
     <header><div class="wrap"><div class="topline"><div class="eyebrow">G6 / domino season 2026</div><button class="admin-button" id="adminOpen">Admin access</button></div><h1>Who runs the table?</h1><p class="intro">Welcome Gentlemen, and Good luck, Especially you Juson.</p></div></header>
     <main class="wrap">
-        <div class="stats"><div class="stat"><strong id="totalGames">0</strong><span>Games logged</span></div><div class="stat"><strong id="leaderName">—</strong><span>Current leader</span></div><div class="stat"><strong id="sixCount">0</strong><span>Sixes called</span></div></div>
+        <div class="stats"><div class="stat"><strong id="totalGames">0</strong><span>Games logged</span></div><div class="stat"><strong id="leaderName">—</strong><span>Current leader</span></div></div>
         <div class="section-head"><h2>Leaderboard</h2><div class="legend">Sorted by saps ratio</div></div>
-        <div class="table-wrap"><table><thead><tr><th>Place</th><th>Player</th><th>Saps given</th><th>Saps received</th><th>Ratio</th><th>Sixes</th></tr></thead><tbody id="leaderboard"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Place</th><th>Player</th><th>Saps given</th><th>Saps received</th><th>Ratio</th></tr></thead><tbody id="leaderboard"></tbody></table></div>
         <section class="record"><div><h3>Log the next game</h3><p>Record a full session to update the board. Winner gets saps given, loser gets saps received and a six.</p></div><button class="primary" id="gameOpen">+ Record session</button></section>
     </main>
     <footer>Built for the table. Data syncs across all your devices in real-time.</footer>
@@ -122,8 +122,8 @@
         function render() {
             const ranked = [...data.players].sort((a, b) => ratio(b) - ratio(a) || b.given - a.given || a.name.localeCompare(b.name));
             const maxRatio = Math.max(1, ...ranked.map(ratio));
-            $('leaderboard').innerHTML = ranked.map((player, index) => `<tr><td class="rank">${String(index + 1).padStart(2, '0')}</td><td class="player">${escapeHtml(player.name)}<small>${player.given + player.received} games on record</small></td><td class="number">${player.given}</td><td class="number">${player.received}</td><td><span class="ratio">${ratio(player).toFixed(2)}</span><div class="bar"><i style="width:${Math.min(100, ratio(player) / maxRatio * 100)}%"></i></div></td><td class="number">${player.sixes}</td></tr>`).join('');
-            $('totalGames').textContent = data.games; $('leaderName').textContent = ranked[0]?.name || '—'; $('sixCount').textContent = data.players.reduce((sum, p) => sum + p.sixes, 0);
+            $('leaderboard').innerHTML = ranked.map((player, index) => `<tr><td class="rank">${String(index + 1).padStart(2, '0')}</td><td class="player">${escapeHtml(player.name)}<small>${player.given + player.received} games on record</small></td><td class="number">${player.given}</td><td class="number">${player.received}</td><td><span class="ratio">${ratio(player).toFixed(2)}</span><div class="bar"><i style="width:${Math.min(100, ratio(player) / maxRatio * 100)}%"></i></div></td></tr>`).join('');
+            $('totalGames').textContent = data.games; $('leaderName').textContent = ranked[0]?.name || '—';
             ['p1', 'p2', 'p3', 'p4'].forEach(id => { const current = $(id).value; $(id).innerHTML = data.players.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join(''); $(id).value = current; });
             updateSessionDisplay();
         }

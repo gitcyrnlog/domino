@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b0911">
+    <title>G6 Domino Rankings</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        :root { --bg: #0b0911; --panel: #14101d; --panel-2: #1b1426; --line: #30233e; --muted: #9589a9; --text: #f7f2ff; --purple: #a970ff; --hot: #e88cff; --green: #76e6b1; --red: #ff819d; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--text); background: radial-gradient(circle at 80% -10%, #321457 0, transparent 38%), var(--bg); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; }
+        button, input, select { font: inherit; }
+        button { cursor: pointer; }
+        .wrap { width: min(1120px, calc(100% - 36px)); margin: auto; }
+        header { padding: 54px 0 34px; border-bottom: 1px solid var(--line); }
+        .topline { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .eyebrow { color: var(--hot); font: 500 12px 'DM Mono', monospace; letter-spacing: .14em; text-transform: uppercase; }
+        h1 { margin: 12px 0 9px; font-size: clamp(38px, 7vw, 74px); line-height: .95; letter-spacing: -.055em; max-width: 700px; }
+        .intro { margin: 0; color: var(--muted); max-width: 590px; line-height: 1.6; }
+        .admin-button, .primary, .ghost, .danger { border: 1px solid var(--line); color: var(--text); background: var(--panel-2); padding: 11px 16px; border-radius: 8px; transition: .2s ease; }
+        .admin-button:hover, .ghost:hover { border-color: var(--purple); color: var(--purple); }
+        .primary { border-color: var(--purple); background: var(--purple); color: #150b20; font-weight: 700; }
+        .primary:hover { filter: brightness(1.12); }
+        .danger { color: var(--red); border-color: #633044; background: transparent; }
+        main { padding: 30px 0 70px; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+        .stat { padding: 18px; background: rgba(27,20,38,.78); border: 1px solid var(--line); border-radius: 10px; }
+        .stat strong { display: block; font-size: 28px; margin-bottom: 3px; }
+        .stat span { color: var(--muted); font: 12px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .08em; }
+        .section-head { display: flex; align-items: end; justify-content: space-between; gap: 15px; margin: 30px 0 14px; }
+        h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
+        .legend { color: var(--muted); font-size: 13px; }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(20,16,29,.84); }
+        table { width: 100%; border-collapse: collapse; min-width: 680px; }
+        th { color: var(--muted); font: 11px 'DM Mono', monospace; letter-spacing: .08em; text-align: left; text-transform: uppercase; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+        td { padding: 18px; border-bottom: 1px solid #241b30; }
+        tr:last-child td { border-bottom: 0; }
+        .rank { color: var(--muted); font: 14px 'DM Mono', monospace; width: 60px; }
+        .player { font-size: 17px; font-weight: 600; }
+        .player small { display: block; color: var(--muted); font: 11px 'DM Mono', monospace; margin-top: 4px; }
+        .number { font: 500 16px 'DM Mono', monospace; }
+        .ratio { color: var(--hot); font: 500 16px 'DM Mono', monospace; }
+        .bar { width: 130px; height: 5px; background: #30223c; border-radius: 8px; overflow: hidden; margin-top: 8px; }
+        .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--purple), var(--hot)); border-radius: inherit; }
+        .record { margin-top: 34px; padding: 23px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(100deg, #1e142a, #15101e); }
+        .record h3 { margin: 0 0 5px; font-size: 19px; }
+        .record p { margin: 0; color: var(--muted); font-size: 13px; }
+        footer { color: var(--muted); text-align: center; font: 11px 'DM Mono', monospace; padding: 15px 0 28px; }
+        .modal { position: fixed; inset: 0; display: none; place-items: center; padding: 18px; background: rgba(5,3,8,.8); z-index: 2; }
+        .modal.open { display: grid; }
+        .modal-card { width: min(570px, 100%); max-height: 90vh; overflow: auto; padding: 25px; border: 1px solid var(--line); border-radius: 12px; background: #171121; box-shadow: 0 25px 90px #000; }
+        .modal-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 22px; }
+        .modal-head h2 { margin-bottom: 5px; }
+        .close { background: none; color: var(--muted); border: 0; font-size: 25px; line-height: 1; }
+        label { color: var(--muted); display: block; font: 11px 'DM Mono', monospace; letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 7px; }
+        input, select { width: 100%; color: var(--text); border: 1px solid var(--line); background: #0f0c16; border-radius: 7px; padding: 11px 12px; outline: none; }
+        input:focus, select:focus { border-color: var(--purple); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+        .form-actions { display: flex; justify-content: end; gap: 10px; margin-top: 23px; }
+        .error { min-height: 18px; color: var(--red); font-size: 13px; margin-top: 10px; }
+        .edit-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 9px; align-items: end; padding: 12px 0; border-bottom: 1px solid #281d35; }
+        .edit-row label { margin-top: 0; }
+        .edit-row input { padding: 9px; }
+        .edit-head { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 9px; color: var(--muted); font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+        @media (max-width: 650px) { .wrap { width: min(100% - 24px, 1120px); } header { padding-top: 34px; } .topline { align-items: start; } .admin-button { padding: 9px 11px; font-size: 12px; } .stats { gap: 8px; } .stat { padding: 13px 10px; } .stat strong { font-size: 21px; } .stat span { font-size: 9px; } .record { align-items: start; flex-direction: column; } .form-grid { grid-template-columns: 1fr; } .edit-row, .edit-head { grid-template-columns: 1.2fr 1fr 1fr 1fr; min-width: 460px; } .edit-scroll { overflow-x: auto; } }
+    </style>
+</head>
+<body>
+    <header><div class="wrap"><div class="topline"><div class="eyebrow">G6 / domino season 2026</div><button class="admin-button" id="adminOpen">Admin access</button></div><h1>Who runs the table?</h1><p class="intro">A live ranking of the crew. Every win adds a sap given, every loss adds a sap received. The ratio decides the order.</p></div></header>
+    <main class="wrap">
+        <div class="stats"><div class="stat"><strong id="totalGames">0</strong><span>Games logged</span></div><div class="stat"><strong id="leaderName">—</strong><span>Current leader</span></div><div class="stat"><strong id="sixCount">0</strong><span>Sixes called</span></div></div>
+        <div class="section-head"><h2>Leaderboard</h2><div class="legend">Sorted by saps ratio</div></div>
+        <div class="table-wrap"><table><thead><tr><th>Place</th><th>Player</th><th>Saps given</th><th>Saps received</th><th>Ratio</th><th>Sixes</th></tr></thead><tbody id="leaderboard"></tbody></table></div>
+        <section class="record"><div><h3>Log the next game</h3><p>Record the winner and loser to update the board automatically.</p></div><button class="primary" id="gameOpen">+ Record game</button></section>
+    </main>
+    <footer>Built for the table. Data is saved in this browser.</footer>
+
+    <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">New result</div><h2>Record a game</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="winner">Winner</label><select id="winner"></select></div><div><label for="loser">Loser</label><select id="loser"></select></div></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Cancel</button><button class="primary" id="saveGame">Save result</button></div></div></div>
+    <div class="modal" id="loginModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Restricted area</div><h2>Admin access</h2></div><button class="close" data-close="loginModal">&times;</button></div><label for="password">Password</label><input id="password" type="password" autocomplete="off" placeholder="Enter admin password"><div class="error" id="loginError"></div><div class="form-actions"><button class="primary" id="loginButton">Unlock</button></div></div></div>
+    <div class="modal" id="adminModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Control room</div><h2>Edit leaderboard</h2></div><button class="close" data-close="adminModal">&times;</button></div><p class="intro">Adjust names, totals, or six counts. Changes apply instantly on this device.</p><div class="edit-scroll"><div class="edit-head"><span>Name</span><span>Given</span><span>Received</span><span>Sixes</span></div><div id="editRows"></div></div><div class="form-actions"><button class="danger" id="resetData">Reset defaults</button><button class="primary" id="saveEdits">Save changes</button></div></div></div>
+    <script>
+        const defaultPlayers = ['Benti', 'Chris', 'Geo', 'Hasani', 'Burley', 'Juson', 'Javari', 'Leshaun', 'Mito'];
+        const stored = localStorage.getItem('g6-domino-data');
+        let data = stored ? JSON.parse(stored) : { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 };
+        const $ = id => document.getElementById(id);
+        const ratio = player => player.received ? player.given / player.received : (player.given ? player.given : 0);
+        function persist() { localStorage.setItem('g6-domino-data', JSON.stringify(data)); }
+        function render() {
+            const ranked = [...data.players].sort((a, b) => ratio(b) - ratio(a) || b.given - a.given || a.name.localeCompare(b.name));
+            const maxRatio = Math.max(1, ...ranked.map(ratio));
+            $('leaderboard').innerHTML = ranked.map((player, index) => `<tr><td class="rank">${String(index + 1).padStart(2, '0')}</td><td class="player">${escapeHtml(player.name)}<small>${player.given + player.received} games on record</small></td><td class="number">${player.given}</td><td class="number">${player.received}</td><td><span class="ratio">${ratio(player).toFixed(2)}</span><div class="bar"><i style="width:${Math.min(100, ratio(player) / maxRatio * 100)}%"></i></div></td><td class="number">${player.sixes}</td></tr>`).join('');
+            $('totalGames').textContent = data.games; $('leaderName').textContent = ranked[0]?.name || '—'; $('sixCount').textContent = data.players.reduce((sum, p) => sum + p.sixes, 0);
+            ['winner', 'loser'].forEach(id => { const current = $(id).value; $(id).innerHTML = data.players.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join(''); $(id).value = current; });
+        }
+        function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char])); }
+        function openModal(id) { $(id).classList.add('open'); }
+        function closeModal(id) { $(id).classList.remove('open'); }
+        $('gameOpen').onclick = () => { $('gameError').textContent = ''; openModal('gameModal'); };
+        $('adminOpen').onclick = () => openModal('loginModal');
+        document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => closeModal(button.dataset.close));
+        $('saveGame').onclick = () => { const winner = data.players.find(p => p.name === $('winner').value); const loser = data.players.find(p => p.name === $('loser').value); if (!winner || !loser || winner === loser) { $('gameError').textContent = 'Choose two different players.'; return; } winner.given++; loser.received++; data.games++; const key = `${loser.name}::${winner.name}`; data.streaks[key] = (data.streaks[key] || 0) + 1; if (data.streaks[key] === 6) { loser.sixes++; data.streaks[key] = 0; } persist(); render(); closeModal('gameModal'); };
+        $('loginButton').onclick = () => { if ($('password').value === 'G62026') { $('password').value = ''; $('loginError').textContent = ''; closeModal('loginModal'); renderEditor(); openModal('adminModal'); } else $('loginError').textContent = 'That password is not correct.'; };
+        function renderEditor() { $('editRows').innerHTML = data.players.map((p, i) => `<div class="edit-row"><input aria-label="Player ${i + 1} name" data-field="name" data-index="${i}" value="${escapeHtml(p.name)}"><input type="number" min="0" data-field="given" data-index="${i}" value="${p.given}"><input type="number" min="0" data-field="received" data-index="${i}" value="${p.received}"><input type="number" min="0" data-field="sixes" data-index="${i}" value="${p.sixes}"></div>`).join(''); }
+        $('saveEdits').onclick = () => { document.querySelectorAll('#editRows input').forEach(input => { const player = data.players[input.dataset.index]; player[input.dataset.field] = input.dataset.field === 'name' ? input.value.trim() || player.name : Math.max(0, Number(input.value) || 0); }); persist(); render(); closeModal('adminModal'); };
+        $('resetData').onclick = () => { if (confirm('Reset all leaderboard data?')) { data = { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 }; persist(); render(); renderEditor(); } };
+        render();
+    </script>
+</body>
+</html>

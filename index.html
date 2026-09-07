@@ -80,8 +80,8 @@
     <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Session recording</div><h2>Record games</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="p1">Player 1</label><select id="p1" onchange="initSession()"></select></div><div><label for="p2">Player 2</label><select id="p2" onchange="initSession()"></select></div><div><label for="p3">Player 3</label><select id="p3" onchange="initSession()"></select></div><div><label for="p4">Player 4</label><select id="p4" onchange="initSession()"></select></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Click player to record win</div><div id="sessionDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Reshuffles used</div><div id="reshuffleDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div class="form-grid" style="margin-top: 18px;"><button class="ghost" style="grid-column: 1 / -1;" id="undoGame">↶ Undo last game</button></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Done</button></div></div></div>
     <div class="modal" id="loginModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Restricted area</div><h2>Admin access</h2></div><button class="close" data-close="loginModal">&times;</button></div><label for="password">Password</label><input id="password" type="password" autocomplete="off" placeholder="Enter admin password"><div class="error" id="loginError"></div><div class="form-actions"><button class="primary" id="loginButton">Unlock</button></div></div></div>
     <div class="modal" id="adminModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Control room</div><h2>Edit leaderboard</h2></div><button class="close" data-close="adminModal">&times;</button></div><p class="intro">Adjust names, totals, or six counts. Changes apply instantly on this device.</p><div class="edit-scroll"><div class="edit-head"><span>Name</span><span>Given</span><span>Received</span><span>Sixes</span></div><div id="editRows"></div></div><div class="form-actions"><button class="danger" id="resetData">Reset defaults</button><button class="primary" id="saveEdits">Save changes</button></div></div></div>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
     <script src="config.js"></script>
     <script>
         const defaultPlayers = ['Benti', 'Chris', 'Geo', 'Hasani', 'Burley', 'Juson', 'Javari', 'Leshaun', 'Mito'];
@@ -264,6 +264,7 @@
                 } else {
                     const stored = localStorage.getItem('g6-domino-data');
                     if (stored) data = JSON.parse(stored);
+                    persist();
                 }
                 render();
                 setupEventListeners();

@@ -8,4 +8,3 @@ const firebaseConfig = {
   messagingSenderId: "458832004299",
   appId: "1:458832004299:web:8e889e8d3d8be9ff78874e"
 };
-const analytics = getAnalytics(app);

@@ -73,11 +73,11 @@
         <div class="stats"><div class="stat"><strong id="totalGames">0</strong><span>Games logged</span></div><div class="stat"><strong id="leaderName">—</strong><span>Current leader</span></div><div class="stat"><strong id="sixCount">0</strong><span>Sixes called</span></div></div>
         <div class="section-head"><h2>Leaderboard</h2><div class="legend">Sorted by saps ratio</div></div>
         <div class="table-wrap"><table><thead><tr><th>Place</th><th>Player</th><th>Saps given</th><th>Saps received</th><th>Ratio</th><th>Sixes</th></tr></thead><tbody id="leaderboard"></tbody></table></div>
-        <section class="record"><div><h3>Log the next game</h3><p>Record the winner and loser to update the board automatically.</p></div><button class="primary" id="gameOpen">+ Record game</button></section>
+        <section class="record"><div><h3>Log the next game</h3><p>Record a full session to update the board. Winner gets saps given, loser gets saps received and a six.</p></div><button class="primary" id="gameOpen">+ Record session</button></section>
     </main>
     <footer>Built for the table. Data syncs across all your devices in real-time.</footer>
 
-    <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">New result</div><h2>Record a game</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="winner">Winner</label><select id="winner"></select></div><div><label for="loser">Loser</label><select id="loser"></select></div></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Cancel</button><button class="primary" id="saveGame">Save result</button></div></div></div>
+    <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Session recording</div><h2>Record games</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="p1">Player 1</label><select id="p1" onchange="initSession()"></select></div><div><label for="p2">Player 2</label><select id="p2" onchange="initSession()"></select></div><div><label for="p3">Player 3</label><select id="p3" onchange="initSession()"></select></div><div><label for="p4">Player 4</label><select id="p4" onchange="initSession()"></select></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Click player to record win</div><div id="sessionDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div class="form-grid" style="margin-top: 18px;"><button class="ghost" style="grid-column: 1 / -1;" id="undoGame">↶ Undo last game</button></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Done</button></div></div></div>
     <div class="modal" id="loginModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Restricted area</div><h2>Admin access</h2></div><button class="close" data-close="loginModal">&times;</button></div><label for="password">Password</label><input id="password" type="password" autocomplete="off" placeholder="Enter admin password"><div class="error" id="loginError"></div><div class="form-actions"><button class="primary" id="loginButton">Unlock</button></div></div></div>
     <div class="modal" id="adminModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Control room</div><h2>Edit leaderboard</h2></div><button class="close" data-close="adminModal">&times;</button></div><p class="intro">Adjust names, totals, or six counts. Changes apply instantly on this device.</p><div class="edit-scroll"><div class="edit-head"><span>Name</span><span>Given</span><span>Received</span><span>Sixes</span></div><div id="editRows"></div></div><div class="form-actions"><button class="danger" id="resetData">Reset defaults</button><button class="primary" id="saveEdits">Save changes</button></div></div></div>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
@@ -89,6 +89,10 @@
         let db = null;
         let isInitialized = false;
         let isUpdatingFromFirebase = false;
+        
+        // Session tracking
+        let sessionWins = {};
+        let sessionHistory = [];
         
         const $ = id => document.getElementById(id);
         const ratio = player => player.received ? player.given / player.received : (player.given ? player.given : 0);
@@ -119,12 +123,85 @@
             const maxRatio = Math.max(1, ...ranked.map(ratio));
             $('leaderboard').innerHTML = ranked.map((player, index) => `<tr><td class="rank">${String(index + 1).padStart(2, '0')}</td><td class="player">${escapeHtml(player.name)}<small>${player.given + player.received} games on record</small></td><td class="number">${player.given}</td><td class="number">${player.received}</td><td><span class="ratio">${ratio(player).toFixed(2)}</span><div class="bar"><i style="width:${Math.min(100, ratio(player) / maxRatio * 100)}%"></i></div></td><td class="number">${player.sixes}</td></tr>`).join('');
             $('totalGames').textContent = data.games; $('leaderName').textContent = ranked[0]?.name || '—'; $('sixCount').textContent = data.players.reduce((sum, p) => sum + p.sixes, 0);
-            ['winner', 'loser'].forEach(id => { const current = $(id).value; $(id).innerHTML = data.players.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join(''); $(id).value = current; });
+            ['p1', 'p2', 'p3', 'p4'].forEach(id => { const current = $(id).value; $(id).innerHTML = data.players.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join(''); $(id).value = current; });
+            updateSessionDisplay();
+        }
+        
+        function updateSessionDisplay() {
+            if (Object.keys(sessionWins).length === 0) {
+                $('sessionDisplay').innerHTML = '<div style="grid-column: 1 / -1; color: var(--muted); font-size: 12px; text-align: center;">Select 4 players above</div>';
+                return;
+            }
+            const display = Object.entries(sessionWins).map(([name, wins]) => `<button style="background: var(--panel-2); border: 1px solid var(--line); color: var(--text); padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: .2s; font-size: 13px;" class="playerWinBtn" data-player="${name}"><div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(name)}</div><div style="color: var(--purple); font-size: 16px; font-weight: 700;">${wins}</div></button>`).join('');
+            $('sessionDisplay').innerHTML = display;
+            document.querySelectorAll('.playerWinBtn').forEach(btn => {
+                btn.onmouseover = () => btn.style.borderColor = 'var(--purple)';
+                btn.onmouseout = () => btn.style.borderColor = 'var(--line)';
+                btn.onclick = () => recordWin(btn.dataset.player);
+            });
         }
         
         function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char])); }
         function openModal(id) { $(id).classList.add('open'); }
         function closeModal(id) { $(id).classList.remove('open'); }
+        
+        function initSession() {
+            const p1 = $('p1').value, p2 = $('p2').value, p3 = $('p3').value, p4 = $('p4').value;
+            const players = [p1, p2, p3, p4];
+            if (new Set(players).size !== 4) { $('gameError').textContent = 'Select 4 different players'; return; }
+            sessionWins = { [p1]: 0, [p2]: 0, [p3]: 0, [p4]: 0 };
+            sessionHistory = [];
+            $('gameError').textContent = '';
+            updateSessionDisplay();
+        }
+        
+        function recordWin(playerName) {
+            if (!sessionWins.hasOwnProperty(playerName)) { $('gameError').textContent = 'Player not in session'; return; }
+            sessionWins[playerName]++;
+            sessionHistory.push(playerName);
+            updateSessionDisplay();
+            
+            const wins = Object.values(sessionWins);
+            const maxWins = Math.max(...wins);
+            const minWins = Math.min(...wins);
+            
+            if (maxWins >= 6 && minWins === 0) {
+                const winner = Object.entries(sessionWins).find(([_, w]) => w === maxWins)?.[0];
+                const loser = Object.entries(sessionWins).find(([_, w]) => w === minWins)?.[0];
+                
+                if (winner && loser) {
+                    const winnerObj = data.players.find(p => p.name === winner);
+                    const loserObj = data.players.find(p => p.name === loser);
+                    
+                    if (winnerObj && loserObj) {
+                        winnerObj.given++;
+                        loserObj.received++;
+                        loserObj.sixes++;
+                        data.games++;
+                        persist();
+                        render();
+                        
+                        $('gameError').textContent = `✓ Session complete! ${escapeHtml(winner)} beats ${escapeHtml(loser)}.`;
+                        sessionWins = {};
+                        sessionHistory = [];
+                        updateSessionDisplay();
+                    }
+                }
+            } else if (Object.values(sessionWins).every(w => w > 0)) {
+                $('gameError').textContent = 'Everyone has at least 1 win - games discarded, session reset.';
+                sessionWins = {};
+                sessionHistory = [];
+                updateSessionDisplay();
+            }
+        }
+        
+        function undoLastGame() {
+            if (sessionHistory.length === 0) { $('gameError').textContent = 'No games to undo'; return; }
+            const lastWinner = sessionHistory.pop();
+            sessionWins[lastWinner]--;
+            $('gameError').textContent = '';
+            updateSessionDisplay();
+        }
         
         // Set up real-time listener for Firebase updates
         function setupFirebaseListener() {
@@ -176,10 +253,12 @@
         }
         
         function setupEventListeners() {
-            $('gameOpen').onclick = () => { $('gameError').textContent = ''; openModal('gameModal'); };
+            $('gameOpen').onclick = () => { initSession(); openModal('gameModal'); };
             $('adminOpen').onclick = () => openModal('loginModal');
             document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => closeModal(button.dataset.close));
-            $('saveGame').onclick = () => { const winner = data.players.find(p => p.name === $('winner').value); const loser = data.players.find(p => p.name === $('loser').value); if (!winner || !loser || winner === loser) { $('gameError').textContent = 'Choose two different players.'; return; } winner.given++; loser.received++; data.games++; const key = `${loser.name}::${winner.name}`; data.streaks[key] = (data.streaks[key] || 0) + 1; if (data.streaks[key] === 6) { loser.sixes++; data.streaks[key] = 0; } persist(); render(); closeModal('gameModal'); };
+            
+            $('undoGame').onclick = () => undoLastGame();
+            
             $('loginButton').onclick = () => { if ($('password').value === 'G62026') { $('password').value = ''; $('loginError').textContent = ''; closeModal('loginModal'); renderEditor(); openModal('adminModal'); } else $('loginError').textContent = 'That password is not correct.'; };
             function renderEditor() { $('editRows').innerHTML = data.players.map((p, i) => `<div class="edit-row"><input aria-label="Player ${i + 1} name" data-field="name" data-index="${i}" value="${escapeHtml(p.name)}"><input type="number" min="0" data-field="given" data-index="${i}" value="${p.given}"><input type="number" min="0" data-field="received" data-index="${i}" value="${p.received}"><input type="number" min="0" data-field="sixes" data-index="${i}" value="${p.sixes}"></div>`).join(''); }
             $('saveEdits').onclick = () => { document.querySelectorAll('#editRows input').forEach(input => { const player = data.players[input.dataset.index]; player[input.dataset.field] = input.dataset.field === 'name' ? input.value.trim() || player.name : Math.max(0, Number(input.value) || 0); }); persist(); render(); closeModal('adminModal'); };

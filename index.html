@@ -77,7 +77,7 @@
     </main>
     <footer>Built for the table. Data syncs across all your devices in real-time.</footer>
 
-    <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Session recording</div><h2>Record games</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="p1">Player 1</label><select id="p1" onchange="initSession()"></select></div><div><label for="p2">Player 2</label><select id="p2" onchange="initSession()"></select></div><div><label for="p3">Player 3</label><select id="p3" onchange="initSession()"></select></div><div><label for="p4">Player 4</label><select id="p4" onchange="initSession()"></select></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Click player to record win</div><div id="sessionDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div class="form-grid" style="margin-top: 18px;"><button class="ghost" style="grid-column: 1 / -1;" id="undoGame">↶ Undo last game</button></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Done</button></div></div></div>
+    <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Session recording</div><h2>Record games</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="p1">Player 1</label><select id="p1" onchange="initSession()"></select></div><div><label for="p2">Player 2</label><select id="p2" onchange="initSession()"></select></div><div><label for="p3">Player 3</label><select id="p3" onchange="initSession()"></select></div><div><label for="p4">Player 4</label><select id="p4" onchange="initSession()"></select></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Click player to record win</div><div id="sessionDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div style="margin-top: 18px; padding: 14px; background: #0f0c16; border-radius: 8px; border: 1px solid var(--line);"><div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;">Reshuffles used</div><div id="reshuffleDisplay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;"></div></div><div class="form-grid" style="margin-top: 18px;"><button class="ghost" style="grid-column: 1 / -1;" id="undoGame">↶ Undo last game</button></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Done</button></div></div></div>
     <div class="modal" id="loginModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Restricted area</div><h2>Admin access</h2></div><button class="close" data-close="loginModal">&times;</button></div><label for="password">Password</label><input id="password" type="password" autocomplete="off" placeholder="Enter admin password"><div class="error" id="loginError"></div><div class="form-actions"><button class="primary" id="loginButton">Unlock</button></div></div></div>
     <div class="modal" id="adminModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Control room</div><h2>Edit leaderboard</h2></div><button class="close" data-close="adminModal">&times;</button></div><p class="intro">Adjust names, totals, or six counts. Changes apply instantly on this device.</p><div class="edit-scroll"><div class="edit-head"><span>Name</span><span>Given</span><span>Received</span><span>Sixes</span></div><div id="editRows"></div></div><div class="form-actions"><button class="danger" id="resetData">Reset defaults</button><button class="primary" id="saveEdits">Save changes</button></div></div></div>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
@@ -93,6 +93,7 @@
         // Session tracking
         let sessionWins = {};
         let sessionHistory = [];
+        let sessionReshuffles = {};
         
         const $ = id => document.getElementById(id);
         const ratio = player => player.received ? player.given / player.received : (player.given ? player.given : 0);
@@ -141,6 +142,20 @@
             });
         }
         
+        function updateReshuffleDisplay() {
+            if (Object.keys(sessionReshuffles).length === 0) {
+                $('reshuffleDisplay').innerHTML = '<div style="grid-column: 1 / -1; color: var(--muted); font-size: 12px; text-align: center;">No players selected</div>';
+                return;
+            }
+            const display = Object.entries(sessionReshuffles).map(([name, reshuffled]) => `<button style="background: ${reshuffled ? 'rgba(118, 230, 177, 0.15)' : 'var(--panel-2)'}; border: 2px solid ${reshuffled ? 'var(--green)' : 'var(--line)'}; color: var(--text); padding: 12px; border-radius: 8px; text-align: center; cursor: pointer; transition: .2s; font-size: 13px;" class="reshuffleBtn" data-player="${name}"><div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(name)}</div><div style="font-size: 12px; color: ${reshuffled ? 'var(--green)' : 'var(--muted)'};">${reshuffled ? '✓ Reshuffled' : 'Not used'}</div></button>`).join('');
+            $('reshuffleDisplay').innerHTML = display;
+            document.querySelectorAll('.reshuffleBtn').forEach(btn => {
+                btn.onmouseover = () => btn.style.opacity = '0.8';
+                btn.onmouseout = () => btn.style.opacity = '1';
+                btn.onclick = () => toggleReshuffle(btn.dataset.player);
+            });
+        }
+        
         function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char])); }
         function openModal(id) { $(id).classList.add('open'); }
         function closeModal(id) { $(id).classList.remove('open'); }
@@ -150,9 +165,11 @@
             const players = [p1, p2, p3, p4];
             if (new Set(players).size !== 4) { $('gameError').textContent = 'Select 4 different players'; return; }
             sessionWins = { [p1]: 0, [p2]: 0, [p3]: 0, [p4]: 0 };
+            sessionReshuffles = { [p1]: false, [p2]: false, [p3]: false, [p4]: false };
             sessionHistory = [];
             $('gameError').textContent = '';
             updateSessionDisplay();
+            updateReshuffleDisplay();
         }
         
         function recordWin(playerName) {
@@ -184,14 +201,18 @@
                         $('gameError').textContent = `✓ Session complete! ${escapeHtml(winner)} beats ${escapeHtml(loser)}.`;
                         sessionWins = {};
                         sessionHistory = [];
+                        sessionReshuffles = {};
                         updateSessionDisplay();
+                        updateReshuffleDisplay();
                     }
                 }
             } else if (Object.values(sessionWins).every(w => w > 0)) {
                 $('gameError').textContent = 'Everyone has at least 1 win - games discarded, session reset.';
                 sessionWins = {};
                 sessionHistory = [];
+                sessionReshuffles = {};
                 updateSessionDisplay();
+                updateReshuffleDisplay();
             }
         }
         
@@ -201,6 +222,12 @@
             sessionWins[lastWinner]--;
             $('gameError').textContent = '';
             updateSessionDisplay();
+        }
+        
+        function toggleReshuffle(playerName) {
+            if (!sessionReshuffles.hasOwnProperty(playerName)) return;
+            sessionReshuffles[playerName] = !sessionReshuffles[playerName];
+            updateReshuffleDisplay();
         }
         
         // Set up real-time listener for Firebase updates

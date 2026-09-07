@@ -75,18 +75,45 @@
         <div class="table-wrap"><table><thead><tr><th>Place</th><th>Player</th><th>Saps given</th><th>Saps received</th><th>Ratio</th><th>Sixes</th></tr></thead><tbody id="leaderboard"></tbody></table></div>
         <section class="record"><div><h3>Log the next game</h3><p>Record the winner and loser to update the board automatically.</p></div><button class="primary" id="gameOpen">+ Record game</button></section>
     </main>
-    <footer>Built for the table. Data is saved in this browser.</footer>
+    <footer>Built for the table. Data syncs across all your devices in real-time.</footer>
 
     <div class="modal" id="gameModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">New result</div><h2>Record a game</h2></div><button class="close" data-close="gameModal">&times;</button></div><div class="form-grid"><div><label for="winner">Winner</label><select id="winner"></select></div><div><label for="loser">Loser</label><select id="loser"></select></div></div><div class="error" id="gameError"></div><div class="form-actions"><button class="ghost" data-close="gameModal">Cancel</button><button class="primary" id="saveGame">Save result</button></div></div></div>
     <div class="modal" id="loginModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Restricted area</div><h2>Admin access</h2></div><button class="close" data-close="loginModal">&times;</button></div><label for="password">Password</label><input id="password" type="password" autocomplete="off" placeholder="Enter admin password"><div class="error" id="loginError"></div><div class="form-actions"><button class="primary" id="loginButton">Unlock</button></div></div></div>
     <div class="modal" id="adminModal"><div class="modal-card"><div class="modal-head"><div><div class="eyebrow">Control room</div><h2>Edit leaderboard</h2></div><button class="close" data-close="adminModal">&times;</button></div><p class="intro">Adjust names, totals, or six counts. Changes apply instantly on this device.</p><div class="edit-scroll"><div class="edit-head"><span>Name</span><span>Given</span><span>Received</span><span>Sixes</span></div><div id="editRows"></div></div><div class="form-actions"><button class="danger" id="resetData">Reset defaults</button><button class="primary" id="saveEdits">Save changes</button></div></div></div>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+    <script src="config.js"></script>
     <script>
         const defaultPlayers = ['Benti', 'Chris', 'Geo', 'Hasani', 'Burley', 'Juson', 'Javari', 'Leshaun', 'Mito'];
-        const stored = localStorage.getItem('g6-domino-data');
-        let data = stored ? JSON.parse(stored) : { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 };
+        let data = { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 };
+        let db = null;
+        let isInitialized = false;
+        let isUpdatingFromFirebase = false;
+        
         const $ = id => document.getElementById(id);
         const ratio = player => player.received ? player.given / player.received : (player.given ? player.given : 0);
-        function persist() { localStorage.setItem('g6-domino-data', JSON.stringify(data)); }
+        
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.warn('Firebase init failed, using local storage fallback:', error.message);
+            const stored = localStorage.getItem('g6-domino-data');
+            if (stored) data = JSON.parse(stored);
+        }
+        
+        // Persist data to Firebase and localStorage (backup)
+        function persist() {
+            localStorage.setItem('g6-domino-data', JSON.stringify(data));
+            if (db && !isUpdatingFromFirebase) {
+                db.ref('leaderboard').set(data).catch(error => {
+                    console.warn('Failed to sync to Firebase:', error.message);
+                });
+            }
+        }
+        
         function render() {
             const ranked = [...data.players].sort((a, b) => ratio(b) - ratio(a) || b.given - a.given || a.name.localeCompare(b.name));
             const maxRatio = Math.max(1, ...ranked.map(ratio));
@@ -94,18 +121,73 @@
             $('totalGames').textContent = data.games; $('leaderName').textContent = ranked[0]?.name || '—'; $('sixCount').textContent = data.players.reduce((sum, p) => sum + p.sixes, 0);
             ['winner', 'loser'].forEach(id => { const current = $(id).value; $(id).innerHTML = data.players.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join(''); $(id).value = current; });
         }
+        
         function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char])); }
         function openModal(id) { $(id).classList.add('open'); }
         function closeModal(id) { $(id).classList.remove('open'); }
-        $('gameOpen').onclick = () => { $('gameError').textContent = ''; openModal('gameModal'); };
-        $('adminOpen').onclick = () => openModal('loginModal');
-        document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => closeModal(button.dataset.close));
-        $('saveGame').onclick = () => { const winner = data.players.find(p => p.name === $('winner').value); const loser = data.players.find(p => p.name === $('loser').value); if (!winner || !loser || winner === loser) { $('gameError').textContent = 'Choose two different players.'; return; } winner.given++; loser.received++; data.games++; const key = `${loser.name}::${winner.name}`; data.streaks[key] = (data.streaks[key] || 0) + 1; if (data.streaks[key] === 6) { loser.sixes++; data.streaks[key] = 0; } persist(); render(); closeModal('gameModal'); };
-        $('loginButton').onclick = () => { if ($('password').value === 'G62026') { $('password').value = ''; $('loginError').textContent = ''; closeModal('loginModal'); renderEditor(); openModal('adminModal'); } else $('loginError').textContent = 'That password is not correct.'; };
-        function renderEditor() { $('editRows').innerHTML = data.players.map((p, i) => `<div class="edit-row"><input aria-label="Player ${i + 1} name" data-field="name" data-index="${i}" value="${escapeHtml(p.name)}"><input type="number" min="0" data-field="given" data-index="${i}" value="${p.given}"><input type="number" min="0" data-field="received" data-index="${i}" value="${p.received}"><input type="number" min="0" data-field="sixes" data-index="${i}" value="${p.sixes}"></div>`).join(''); }
-        $('saveEdits').onclick = () => { document.querySelectorAll('#editRows input').forEach(input => { const player = data.players[input.dataset.index]; player[input.dataset.field] = input.dataset.field === 'name' ? input.value.trim() || player.name : Math.max(0, Number(input.value) || 0); }); persist(); render(); closeModal('adminModal'); };
-        $('resetData').onclick = () => { if (confirm('Reset all leaderboard data?')) { data = { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 }; persist(); render(); renderEditor(); } };
-        render();
+        
+        // Set up real-time listener for Firebase updates
+        function setupFirebaseListener() {
+            if (!db) return;
+            db.ref('leaderboard').on('value', snapshot => {
+                const firebaseData = snapshot.val();
+                if (firebaseData) {
+                    isUpdatingFromFirebase = true;
+                    data = firebaseData;
+                    render();
+                    isUpdatingFromFirebase = false;
+                    console.log('Data synced from Firebase');
+                }
+            }, error => {
+                console.warn('Firebase listener error:', error.message);
+            });
+        }
+        
+        // Load initial data from Firebase
+        function initializeData() {
+            if (!db) {
+                const stored = localStorage.getItem('g6-domino-data');
+                if (stored) data = JSON.parse(stored);
+                render();
+                setupEventListeners();
+                isInitialized = true;
+                return;
+            }
+            
+            db.ref('leaderboard').get().then(snapshot => {
+                if (snapshot.exists()) {
+                    data = snapshot.val();
+                } else {
+                    const stored = localStorage.getItem('g6-domino-data');
+                    if (stored) data = JSON.parse(stored);
+                }
+                render();
+                setupEventListeners();
+                setupFirebaseListener();
+                isInitialized = true;
+            }).catch(error => {
+                console.warn('Failed to load from Firebase:', error.message);
+                const stored = localStorage.getItem('g6-domino-data');
+                if (stored) data = JSON.parse(stored);
+                render();
+                setupEventListeners();
+                isInitialized = true;
+            });
+        }
+        
+        function setupEventListeners() {
+            $('gameOpen').onclick = () => { $('gameError').textContent = ''; openModal('gameModal'); };
+            $('adminOpen').onclick = () => openModal('loginModal');
+            document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => closeModal(button.dataset.close));
+            $('saveGame').onclick = () => { const winner = data.players.find(p => p.name === $('winner').value); const loser = data.players.find(p => p.name === $('loser').value); if (!winner || !loser || winner === loser) { $('gameError').textContent = 'Choose two different players.'; return; } winner.given++; loser.received++; data.games++; const key = `${loser.name}::${winner.name}`; data.streaks[key] = (data.streaks[key] || 0) + 1; if (data.streaks[key] === 6) { loser.sixes++; data.streaks[key] = 0; } persist(); render(); closeModal('gameModal'); };
+            $('loginButton').onclick = () => { if ($('password').value === 'G62026') { $('password').value = ''; $('loginError').textContent = ''; closeModal('loginModal'); renderEditor(); openModal('adminModal'); } else $('loginError').textContent = 'That password is not correct.'; };
+            function renderEditor() { $('editRows').innerHTML = data.players.map((p, i) => `<div class="edit-row"><input aria-label="Player ${i + 1} name" data-field="name" data-index="${i}" value="${escapeHtml(p.name)}"><input type="number" min="0" data-field="given" data-index="${i}" value="${p.given}"><input type="number" min="0" data-field="received" data-index="${i}" value="${p.received}"><input type="number" min="0" data-field="sixes" data-index="${i}" value="${p.sixes}"></div>`).join(''); }
+            $('saveEdits').onclick = () => { document.querySelectorAll('#editRows input').forEach(input => { const player = data.players[input.dataset.index]; player[input.dataset.field] = input.dataset.field === 'name' ? input.value.trim() || player.name : Math.max(0, Number(input.value) || 0); }); persist(); render(); closeModal('adminModal'); };
+            $('resetData').onclick = () => { if (confirm('Reset all leaderboard data?')) { data = { players: defaultPlayers.map(name => ({ name, given: 0, received: 0, sixes: 0 })), streaks: {}, games: 0 }; persist(); render(); renderEditor(); } };
+        }
+        
+        // Start initialization
+        initializeData();
     </script>
 </body>
 </html>
